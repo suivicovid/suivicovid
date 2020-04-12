@@ -176,11 +176,13 @@ public class ConsultEditPanel extends JPanel {
         c.setToux(cboxToux.getSelectedIndex());
         c.setAsthenie(cboxAsthenie.getSelectedIndex());
         c.setGeneRespi(cboxGeneRespi.getSelectedIndex());
-        c.setEssoufleEffort(cboxEssEffort.getSelectedIndex());
 
-        if (c.getEssoufleEffort() == 3) {
+        if (cboxEssEffort.getSelectedIndex() == 3) {
             c.setEssoufleRepos(true);
             c.setEssoufleEffort(0);
+        } else {
+            c.setEssoufleRepos(false);
+            c.setEssoufleEffort(cboxEssEffort.getSelectedIndex());
         }
 
         c.setAnosmie(cbAnosmie.isSelected());

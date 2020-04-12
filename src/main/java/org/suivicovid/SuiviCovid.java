@@ -29,6 +29,6 @@ public class SuiviCovid {
         f.pack();
         f.setVisible(true);
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        f.setTitle("SuiviCovid 2.0");
+        f.setTitle("SuiviCovid 2.1");
     }
 }

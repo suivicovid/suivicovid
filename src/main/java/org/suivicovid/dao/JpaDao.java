@@ -107,7 +107,7 @@ public class JpaDao {
 
     public void checkAndUpdateDb() {
         backup();
-        int currentVersion = 20;
+        int currentVersion = 21;
         int dbVersion = getDbVersion();
         System.out.println("db version " + dbVersion);
 
