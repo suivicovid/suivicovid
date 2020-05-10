@@ -556,6 +556,7 @@ public class ConsultEditPanel extends JPanel {
             p.getConsults().add(c); // NOP if already there
             p.updateFromConsult(c);
             JpaDao.getInstance().commit();
+            JpaDao.getInstance().close();
 
             if (topFrame != null) {
                 topFrame.dispose();

@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -34,6 +35,7 @@ import javax.swing.table.TableColumnModel;
 
 import org.suivicovid.dao.JpaDao;
 import org.suivicovid.data.Patient;
+import org.suivicovid.sync.Sync;
 
 public class MainPanel extends JPanel {
     /**
@@ -50,6 +52,8 @@ public class MainPanel extends JPanel {
     JButton btNew = new JButton("new");
     JButton btDelete = new JButton("delete");
     JButton btRefresh = new JButton("refresh");
+
+    JCheckBox cbNetworked = new JCheckBox("multiposte");
 
     static private DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -78,7 +82,13 @@ public class MainPanel extends JPanel {
         c.gridy = 0;
 
         c.gridx = 0;
-        c.gridwidth = 3;
+        c.gridwidth = 2;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
+        buttons.add(cbNetworked, c);
+
+        c.gridx = 2;
+        c.gridwidth = 1;
         c.weightx = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
         buttons.add(lbFill, c);
@@ -87,7 +97,6 @@ public class MainPanel extends JPanel {
         c.gridwidth = 2;
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
-        c.gridwidth = 1;
         buttons.add(btNew, c);
         c.gridx = 5;
         c.gridwidth = 2;
@@ -160,6 +169,19 @@ public class MainPanel extends JPanel {
             }
         });
 
+        cbNetworked.setSelected(JpaDao.getInstance().isNetworked());
+
+        cbNetworked.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent arg0) {
+                boolean net = cbNetworked.isSelected();
+                JpaDao.getInstance().setNetworked(net);
+                Sync.getInstance().activate(net);
+            }
+
+        });
+
         btRefresh.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent arg0) {
@@ -202,7 +224,6 @@ public class MainPanel extends JPanel {
     }
 
     public void refreshMe() {
-
         List<Patient> l = JpaDao.getInstance().getAll(Patient.class);
 
         mdPatient.setData(l);
@@ -213,7 +234,7 @@ public class MainPanel extends JPanel {
         mdPatient.fireTableDataChanged();
 
         table.repaint();
-
+        JpaDao.getInstance().close();
     }
 
     public class StatusColumnCellRenderer extends DefaultTableCellRenderer {
@@ -451,6 +472,15 @@ public class MainPanel extends JPanel {
 
     public JFrame getParentFrame() {
         return parentFrame;
+    }
+
+	public static void showActiveNet() {
+        if (instance != null)
+        instance.updateActiveNet(true);
+	}
+
+    private void updateActiveNet(boolean b) {
+        cbNetworked.setForeground(b ? Color.GREEN : Color.BLACK);
     }
 
 }

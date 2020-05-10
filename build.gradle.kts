@@ -42,7 +42,8 @@ dependencies {
 
     implementation("com.h2database:h2:1.4.200")
 
-
+    implementation("org.jgroups:jgroups:4.2.3.Final")
+    implementation("commons-beanutils:commons-beanutils:1.9.4")
 }
 
 tasks.jar {

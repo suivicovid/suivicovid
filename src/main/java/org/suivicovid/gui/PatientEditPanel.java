@@ -1045,6 +1045,7 @@ public class PatientEditPanel extends JPanel {
             fieldsToPatient();
             p = JpaDao.getInstance().merge(p);
             JpaDao.getInstance().commit();
+            JpaDao.getInstance().close();
             MainPanel.refresh();
             if (topFrame != null)
                 topFrame.dispose();
@@ -1064,6 +1065,7 @@ public class PatientEditPanel extends JPanel {
         mdConsult.fireTableDataChanged();
 
         getParent().repaint();
+        JpaDao.getInstance().close();
     }
 
     static class ConsultTableModel extends AbstractTableModel {

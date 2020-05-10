@@ -9,13 +9,15 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
+import javax.persistence.NoResultException;
 import javax.persistence.Persistence;
-import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 
 import org.suivicovid.data.AppInfo;
+import org.suivicovid.data.Consult;
+import org.suivicovid.data.Deleted;
 import org.suivicovid.data.Patient;
 
 public class JpaDao {
@@ -27,17 +29,19 @@ public class JpaDao {
         return InstanceHolder.instance;
     }
 
-    @PersistenceContext(unitName = "suivicovid")
-    private EntityManager em;
+    // v2.3, we are multithreaded because of network sync
+    ThreadLocal<EntityManager> entityManagerThreadLocal = new ThreadLocal<EntityManager>();
 
-    EntityManagerFactory fac = null;
+    EntityManagerFactory fac = Persistence.createEntityManagerFactory("suivicovid");
 
     public EntityManager getEM() {
+        EntityManager em = entityManagerThreadLocal.get();
+
         if (em != null)
             return em;
 
-        fac = Persistence.createEntityManagerFactory("suivicovid");
         em = fac.createEntityManager();
+        entityManagerThreadLocal.set(em);
         return em;
     }
 
@@ -63,6 +67,17 @@ public class JpaDao {
         if (tx != null && tx.isActive())
             tx.commit();
     }
+
+    public void close() {
+        EntityManager em = entityManagerThreadLocal.get();
+        if (em == null) return;
+        EntityTransaction tx = em.getTransaction();
+        if (tx != null && tx.isActive())
+            tx.rollback();
+        em.close();
+        entityManagerThreadLocal.set(null);
+    }
+
 
     public void rollback() {
         EntityManager em = getEM();
@@ -105,9 +120,20 @@ public class JpaDao {
         return i == null ? 4 : i.getAppVersion();
     }
 
+    public boolean isNetworked() {
+        AppInfo i = getById(AppInfo.class, 1L);
+        return i.isNetworked();
+    }
+
+    public void setNetworked(boolean net) {
+        AppInfo i = getById(AppInfo.class, 1L);
+        i.setNetworked(net);
+        commit();
+    }
+
     public void checkAndUpdateDb() {
         backup();
-        int currentVersion = 21;
+        int currentVersion = 22;
         int dbVersion = getDbVersion();
         System.out.println("db version " + dbVersion);
 
@@ -123,7 +149,23 @@ public class JpaDao {
         if (dbVersion < 15)
             updateToV15();
 
+        if (dbVersion < 22)
+            updateToV22();
+
         updateDbVersion(currentVersion);
+    }
+
+    private void updateToV22() {
+        JpaDao.getInstance().getAll(Patient.class).stream().forEach(p -> {
+            p.setUuid();
+            p.setCreated();
+        });
+        JpaDao.getInstance().getAll(Consult.class).stream().forEach(c -> {
+            c.setUuid();
+            c.setCreated();
+        });
+        JpaDao.getInstance().commit();
+
     }
 
     private void updateToV15() {
@@ -168,5 +210,43 @@ public class JpaDao {
             e.printStackTrace();
         }
     }
+
+
+    public Patient getPatientFromUID(String uuid) {
+        EntityManager em = getEMWithTx();
+        Query q = em.createQuery("from Patient p where p.uuid=?1");
+        q.setParameter(1, uuid);
+
+        try {
+            return (Patient) q.getSingleResult();
+        } catch (NoResultException e) {
+            return null;
+        }
+    }
+
+    public Consult getConsultFromUID(String uuid) {
+        EntityManager em = getEMWithTx();
+        Query q = em.createQuery("from Consult c where c.uuid=?1");
+        q.setParameter(1, uuid);
+
+        try {
+            return (Consult) q.getSingleResult();
+        } catch (NoResultException e) {
+            return null;
+        }
+    }
+
+    public Deleted getDeletedFromUID(String uuid) {
+        EntityManager em = getEMWithTx();
+        Query q = em.createQuery("from Deleted d where d.uuid=?1");
+        q.setParameter(1, uuid);
+
+        try {
+            return (Deleted) q.getSingleResult();
+        } catch (NoResultException e) {
+            return null;
+        }
+    }
+
 
 }

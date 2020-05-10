@@ -1,8 +1,11 @@
 package org.suivicovid.data;
 
+import java.io.Serializable;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -13,9 +16,20 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.PostPersist;
+import javax.persistence.PostUpdate;
+import javax.persistence.PrePersist;
+import javax.persistence.PreRemove;
+import javax.persistence.PreUpdate;
+import javax.persistence.Transient;
+
+import org.suivicovid.dao.JpaDao;
+import org.suivicovid.sync.Sync;
 
 @Entity
-public class Consult implements Comparable<Consult> {
+public class Consult implements Comparable<Consult>, Serializable {
+    private static final long serialVersionUID = 2616058929474166351L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private long id;
@@ -91,6 +105,13 @@ public class Consult implements Comparable<Consult> {
     private int i4;
     @Column(name = "i5")
     private int i5;
+
+    private String uuid;
+    private Timestamp created;
+    private Timestamp updated;
+
+    @Transient
+    boolean fromSync;
 
     public Consult() {
     }
@@ -422,4 +443,88 @@ public class Consult implements Comparable<Consult> {
         this.asthenie = asthenie;
     }
 
+    /**
+     * @return the uuid
+     */
+    public String getUuid() {
+        return uuid;
+    }
+
+    /**
+     * @return the updated
+     */
+    public Timestamp getUpdated() {
+        return updated;
+    }
+
+    /**
+     * @return the created
+     */
+    public Timestamp getCreated() {
+        return created;
+    }
+
+    public void setUuid() {
+        if (uuid == null)
+            uuid = UUID.randomUUID().toString();
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    @PrePersist
+    public void setCreated() {
+        created = new Timestamp(System.currentTimeMillis());
+        updated = created;
+        setUuid();
+        // do we tag the patient as updated? Not needed
+        if (!isFromSync() && Sync.getInstance() != null)
+            Sync.getInstance().send(this);
+    }
+
+    @PreUpdate
+    public void setUpdated() {
+        if (!isFromSync())
+            updated = new Timestamp(System.currentTimeMillis());
+        if (!isFromSync() && Sync.getInstance() != null)
+            Sync.getInstance().send(this);
+    }
+
+    @PreRemove
+    public void preRemove() {
+        if (!isFromSync()) {
+            Deleted d = new Deleted();
+            d.setUuid(getUuid());
+            JpaDao.getInstance().persist(d);
+            if (Sync.getInstance() != null)
+                Sync.getInstance().send(d);
+        }
+    }
+
+    public void setUpdated(Timestamp ts) {
+        updated = ts;
+    }
+
+    public void setCreated(Timestamp ts) {
+        created = ts;
+    }
+
+    @PostUpdate
+    @PostPersist
+    protected void clearSync() {
+        fromSync = false;
+    }
+
+    public boolean isFromSync() {
+        return this.fromSync;
+    }
+
+    public void setFromSync() {
+        this.fromSync = true;
+    }
+
+    public void clearId() {
+        id = 0;
+    }
 }

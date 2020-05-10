@@ -1,5 +1,6 @@
 package org.suivicovid.data;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
@@ -9,6 +10,10 @@ public class AppInfo {
     private long id;
 
     private int appVersion;
+
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean networked = false;
 
     /**
      * @param id the id to set
@@ -36,5 +41,19 @@ public class AppInfo {
      */
     public void setAppVersion(int appVersion) {
         this.appVersion = appVersion;
+    }
+
+    /**
+     * @return the networked
+     */
+    public boolean isNetworked() {
+        return networked;
+    }
+
+    /**
+     * @param networked the networked to set
+     */
+    public void setNetworked(boolean networked) {
+        this.networked = networked;
     }
 }

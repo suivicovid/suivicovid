@@ -1,11 +1,14 @@
 package org.suivicovid.data;
 
+import java.io.Serializable;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -18,9 +21,20 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.OrderBy;
+import javax.persistence.PostPersist;
+import javax.persistence.PostUpdate;
+import javax.persistence.PrePersist;
+import javax.persistence.PreRemove;
+import javax.persistence.PreUpdate;
+import javax.persistence.Transient;
+
+import org.suivicovid.dao.JpaDao;
+import org.suivicovid.sync.Sync;
 
 @Entity
-public class Patient {
+public class Patient implements Serializable {
+    private static final long serialVersionUID = 4498027046553479379L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private long id;
@@ -142,13 +156,16 @@ public class Patient {
     @Column(name = "i5")
     private int i5;
 
+    @Column(unique = true)
+    private String uuid;
+    private Timestamp created;
+    private Timestamp updated;
+
+    @Transient
+    boolean fromSync;
+
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "patient", fetch = FetchType.EAGER)
-    // @MapKey(name = "csDate")
     @OrderBy("csDate")
-    // @CollectionTable(name = "otherTitles", joinColumns = @JoinColumn(name =
-    // "filmId"))
-    // @MapKeyColumn(length = 2, name = "titleLanguage")
-    // @Column(name = "title")
     private SortedSet<Consult> consults = new TreeSet<Consult>();
 
     public long getId() {
@@ -202,14 +219,6 @@ public class Patient {
     public void setDateRappel(LocalDate dateRappel) {
         this.dateRappel = dateRappel;
     }
-
-    // public String getEvolution() {
-    // return evolution;
-    // }
-
-    // public void setEvolution(String evolution) {
-    // this.evolution = evolution;
-    // }
 
     public boolean isRespiChronique() {
         return respiChronique;
@@ -394,22 +403,6 @@ public class Patient {
     public void setConsults(SortedSet<Consult> consults) {
         this.consults = consults;
     }
-
-    // public String getNoteSymptomes() {
-    // return noteSymptomes;
-    // }
-
-    // public void setNoteSymptomes(String noteSymptomes) {
-    // this.noteSymptomes = noteSymptomes;
-    // }
-
-    // public String getNoteFragilites() {
-    // return noteFragilites;
-    // }
-
-    // public void setNoteFragilites(String noteFragilites) {
-    // this.noteFragilites = noteFragilites;
-    // }
 
     /**
      * @return the notes
@@ -1000,6 +993,95 @@ public class Patient {
      */
     public void setDateRappelJ13(LocalDate dateRappelJ13) {
         this.dateRappelJ13 = dateRappelJ13;
+    }
+
+    /**
+     * @return the uuid
+     */
+    public String getUuid() {
+        return uuid;
+    }
+
+    /**
+     * @return the updated
+     */
+    public Timestamp getUpdated() {
+        return updated;
+    }
+
+    /**
+     * @return the created
+     */
+    public Timestamp getCreated() {
+        return created;
+    }
+
+    public void setUuid() {
+        if (uuid == null)
+            uuid = UUID.randomUUID().toString();
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+
+    @PrePersist
+    public void setCreated() {
+        created = new Timestamp(System.currentTimeMillis());
+        updated = created;
+        setUuid();
+        System.out.println("patient prepersist");
+        if (!isFromSync() && Sync.getInstance() != null)
+            Sync.getInstance().send(this);
+    }
+
+    @PreUpdate
+    public void setUpdated() {
+        if (!isFromSync())
+            updated = new Timestamp(System.currentTimeMillis());
+        System.out.println("patient preupdate");
+
+        if (!isFromSync() && Sync.getInstance() != null)
+            Sync.getInstance().send(this);
+    }
+
+    @PreRemove
+    public void preRemove() {
+        if (!isFromSync()) {
+            Deleted d = new Deleted();
+            d.setUuid(getUuid());
+            JpaDao.getInstance().persist(d);
+            if (Sync.getInstance() != null)
+                Sync.getInstance().send(d);
+        }
+    }
+
+    @PostUpdate
+    @PostPersist
+    protected void clearSync() {
+        fromSync = false;
+    }
+
+    public void setUpdated(Timestamp ts) {
+        updated = ts;
+    }
+
+    public void setCreated(Timestamp ts) {
+        created = ts;
+    }
+
+    public boolean isFromSync() {
+        return this.fromSync;
+    }
+
+    public void setFromSync() {
+        this.fromSync = true;
+        getConsults().stream().forEach(c -> c.setFromSync());
+    }
+
+    public void clearId() {
+        id = 0;
     }
 
 }
